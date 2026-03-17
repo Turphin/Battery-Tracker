@@ -24,7 +24,7 @@
       "purpose": "any"
     }
   ],
-  "id": "org.ballardrobotics.batterytracker.83c30qf9z9",
+  "id": "org.ballardrobotics.batterytracker.pwa",
   "description": "App for FRC competitions to track robot batteries (vibe coded)",
   "dir": "auto",
   "lang": "en",
