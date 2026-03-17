@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FRC Battery Pit Tracker</title>
+    <title>FRC Battery Tracker + Logs</title>
     <style>
         :root {
             --primary: #2563eb;
+            --accent: #f59e0b;
             --bg: #f8fafc;
             --card: #ffffff;
             --text: #1e293b;
@@ -18,30 +19,67 @@
             color: var(--text);
             margin: 0;
             padding: 10px;
+            overflow-x: hidden;
         }
 
-        h1 { text-align: center; font-size: 1.5rem; color: var(--primary); }
+        /* --- Header & Layout --- */
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+        }
+
+        h1 { font-size: 1.2rem; margin: 0; color: var(--primary); }
 
         .battery-grid {
             display: grid;
             gap: 15px;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            margin-top: 10px;
         }
 
+        /* --- Sidebar Styles --- */
+        #sidebar {
+            position: fixed;
+            right: -300px;
+            top: 0;
+            width: 280px;
+            height: 100%;
+            background: #fff;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+            transition: 0.3s;
+            z-index: 100;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #sidebar.open { right: 0; }
+
+        .log-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            font-size: 0.85rem;
+            border-top: 1px solid #eee;
+            margin-top: 10px;
+            padding-top: 10px;
+        }
+
+        .log-entry {
+            padding: 5px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .log-time { color: #64748b; font-size: 0.7rem; }
+
+        /* --- UI Elements --- */
         .battery-card {
             background: var(--card);
             border-radius: 12px;
             padding: 15px;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
             border-left: 6px solid var(--primary);
-        }
-
-        .battery-header {
-            font-weight: bold;
-            font-size: 1.2rem;
-            margin-bottom: 10px;
-            display: flex;
-            justify-content: space-between;
         }
 
         .input-group {
@@ -51,96 +89,124 @@
             margin-bottom: 10px;
         }
 
-        label { font-size: 0.75rem; font-weight: bold; display: block; margin-bottom: 4px; }
-
         input, textarea {
             width: 100%;
             padding: 8px;
             border: 1px solid #cbd5e1;
             border-radius: 6px;
             box-sizing: border-box;
-            font-size: 1rem;
         }
 
-        textarea { height: 60px; resize: vertical; }
-
-        button {
-            width: 100%;
+        .btn {
             background: var(--primary);
             color: white;
             border: none;
             padding: 10px;
             border-radius: 6px;
             font-weight: bold;
-            margin-top: 5px;
+            cursor: pointer;
         }
 
-        button:active { opacity: 0.8; }
+        .btn-log { background: var(--accent); }
+        .btn-clear { background: #ef4444; margin-top: 10px; font-size: 0.8rem; }
     </style>
 </head>
 <body>
 
-    <h1>🔋 FRC Battery Tracker</h1>
+    <div class="header-container">
+        <h1>🔋 FRC Battery Tracker</h1>
+        <button class="btn btn-log" onclick="toggleSidebar()">View Logs</button>
+    </div>
+
     <div id="app" class="battery-grid"></div>
+
+    <div id="sidebar">
+        <h3>Activity Log</h3>
+        <button class="btn" onclick="toggleSidebar()">Close</button>
+        <div id="log-list" class="log-container"></div>
+        <button class="btn btn-clear" onclick="clearLogs()">Clear All Logs</button>
+    </div>
 
     <script>
         const batteryCount = 9;
         const app = document.getElementById('app');
+        const logList = document.getElementById('log-list');
 
-        // Load data or initialize empty
         let batteryData = JSON.parse(localStorage.getItem('frc_batteries')) || {};
+        let activityLogs = JSON.parse(localStorage.getItem('frc_logs')) || [];
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+
+        function addLog(message) {
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            activityLogs.unshift({ time, message }); // Newest first
+            if(activityLogs.length > 50) activityLogs.pop(); // Keep last 50
+            localStorage.setItem('frc_logs', JSON.stringify(activityLogs));
+            renderLogs();
+        }
+
+        function renderLogs() {
+            logList.innerHTML = activityLogs.map(log => `
+                <div class="log-entry">
+                    <span class="log-time">${log.time}</span><br>
+                    ${log.message}
+                </div>
+            `).join('');
+        }
 
         function createCards() {
             for (let i = 1; i <= batteryCount; i++) {
                 const data = batteryData[i] || { match: '', pre: '', post: '', notes: '' };
-                
                 const card = document.createElement('div');
                 card.className = 'battery-card';
                 card.innerHTML = `
-                    <div class="battery-header">Battery #${i}</div>
+                    <div style="font-weight:bold; margin-bottom:10px;">Battery #${i}</div>
                     <div class="input-group">
                         <div>
-                            <label>Match #</label>
-                            <input type="number" id="match-${i}" value="${data.match}" oninput="save(${i})">
+                            <label style="font-size:0.7rem">Match</label>
+                            <input type="number" id="match-${i}" value="${data.match}" onchange="logChange(${i}, 'Match')">
                         </div>
                         <div>
-                            <label>Pre %</label>
-                            <input type="number" id="pre-${i}" value="${data.pre}" oninput="save(${i})">
+                            <label style="font-size:0.7rem">Pre %</label>
+                            <input type="number" id="pre-${i}" value="${data.pre}" onchange="logChange(${i}, 'Pre %')">
                         </div>
                         <div>
-                            <label>Post %</label>
-                            <input type="number" id="post-${i}" value="${data.post}" oninput="save(${i})">
+                            <label style="font-size:0.7rem">Post %</label>
+                            <input type="number" id="post-${i}" value="${data.post}" onchange="logChange(${i}, 'Post %')">
                         </div>
                     </div>
-                    <label>Notes (Health/Issues)</label>
-                    <textarea id="notes-${i}" oninput="save(${i})">${data.notes}</textarea>
-                    <button onclick="clearBattery(${i})">Reset Battery ${i}</button>
+                    <textarea id="notes-${i}" placeholder="Notes..." onchange="logChange(${i}, 'Notes')">${data.notes}</textarea>
                 `;
                 app.appendChild(card);
             }
         }
 
-        window.save = (id) => {
+        window.logChange = (id, field) => {
+            const val = document.getElementById(`${field.toLowerCase().split(' ')[0]}-${id}`).value;
+            
             batteryData[id] = {
                 match: document.getElementById(`match-${id}`).value,
                 pre: document.getElementById(`pre-${id}`).value,
                 post: document.getElementById(`post-${id}`).value,
                 notes: document.getElementById(`notes-${id}`).value
             };
+            
             localStorage.setItem('frc_batteries', JSON.stringify(batteryData));
+            addLog(`Batt #${id}: ${field} updated to "${val}"`);
         };
 
-        window.clearBattery = (id) => {
-            if(confirm(`Clear data for Battery #${id}?`)) {
-                document.getElementById(`match-${id}`).value = '';
-                document.getElementById(`pre-${id}`).value = '';
-                document.getElementById(`post-${id}`).value = '';
-                document.getElementById(`notes-${id}`).value = '';
-                save(id);
+        window.clearLogs = () => {
+            if(confirm("Delete all history?")) {
+                activityLogs = [];
+                localStorage.setItem('frc_logs', JSON.stringify(activityLogs));
+                renderLogs();
             }
         };
 
         createCards();
+        renderLogs();
     </script>
 </body>
 </html>
