@@ -3,6 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#2563eb">
+    <link rel="apple-touch-icon" href="https://via.placeholder.com/192/2563eb/ffffff?text=BAT">
+
+    <link rel="manifest" href="manifest.json">  
     <title>FRC Battery Tracker + Logs</title>
     <style>
         :root {
@@ -11,6 +17,7 @@
             --bg: #f8fafc;
             --card: #ffffff;
             --text: #1e293b;
+            --danger: #ef4444;
         }
 
         body {
@@ -22,7 +29,6 @@
             overflow-x: hidden;
         }
 
-        /* --- Header & Layout --- */
         .header-container {
             display: flex;
             justify-content: space-between;
@@ -39,7 +45,7 @@
             margin-top: 10px;
         }
 
-        /* --- Sidebar Styles --- */
+        /* --- Sidebar & Log Styles --- */
         #sidebar {
             position: fixed;
             right: -300px;
@@ -60,18 +66,32 @@
         .log-container {
             flex-grow: 1;
             overflow-y: auto;
-            font-size: 0.85rem;
             border-top: 1px solid #eee;
             margin-top: 10px;
-            padding-top: 10px;
         }
 
         .log-entry {
-            padding: 5px 0;
+            padding: 10px 0;
             border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
         }
 
-        .log-time { color: #64748b; font-size: 0.7rem; }
+        .log-content { flex-grow: 1; font-size: 0.85rem; }
+        .log-time { color: #64748b; font-size: 0.7rem; display: block; }
+
+        .delete-log-btn {
+            background: none;
+            border: none;
+            color: #cbd5e1;
+            font-size: 1.2rem;
+            padding: 0 5px;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .delete-log-btn:hover { color: var(--danger); }
 
         /* --- UI Elements --- */
         .battery-card {
@@ -95,6 +115,7 @@
             border: 1px solid #cbd5e1;
             border-radius: 6px;
             box-sizing: border-box;
+            font-size: 1rem;
         }
 
         .btn {
@@ -108,7 +129,7 @@
         }
 
         .btn-log { background: var(--accent); }
-        .btn-clear { background: #ef4444; margin-top: 10px; font-size: 0.8rem; }
+        .btn-clear { background: var(--danger); margin-top: 10px; font-size: 0.8rem; }
     </style>
 </head>
 <body>
@@ -124,7 +145,7 @@
         <h3>Activity Log</h3>
         <button class="btn" onclick="toggleSidebar()">Close</button>
         <div id="log-list" class="log-container"></div>
-        <button class="btn btn-clear" onclick="clearLogs()">Clear All Logs</button>
+        <button class="btn btn-clear" onclick="clearAllLogs()">Clear All Logs</button>
     </div>
 
     <script>
@@ -141,17 +162,31 @@
 
         function addLog(message) {
             const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            activityLogs.unshift({ time, message }); // Newest first
-            if(activityLogs.length > 50) activityLogs.pop(); // Keep last 50
-            localStorage.setItem('frc_logs', JSON.stringify(activityLogs));
-            renderLogs();
+            activityLogs.unshift({ id: Date.now(), time, message }); 
+            saveAndRenderLogs();
         }
 
-        function renderLogs() {
+        function removeLog(logId) {
+            activityLogs = activityLogs.filter(log => log.id !== logId);
+            saveAndRenderLogs();
+        }
+
+        function clearAllLogs() {
+            if(confirm("Delete all history?")) {
+                activityLogs = [];
+                saveAndRenderLogs();
+            }
+        }
+
+        function saveAndRenderLogs() {
+            localStorage.setItem('frc_logs', JSON.stringify(activityLogs));
             logList.innerHTML = activityLogs.map(log => `
                 <div class="log-entry">
-                    <span class="log-time">${log.time}</span><br>
-                    ${log.message}
+                    <div class="log-content">
+                        <span class="log-time">${log.time}</span>
+                        ${log.message}
+                    </div>
+                    <button class="delete-log-btn" onclick="removeLog(${log.id})">&times;</button>
                 </div>
             `).join('');
         }
@@ -184,7 +219,8 @@
         }
 
         window.logChange = (id, field) => {
-            const val = document.getElementById(`${field.toLowerCase().split(' ')[0]}-${id}`).value;
+            const inputId = field.toLowerCase().split(' ')[0];
+            const val = document.getElementById(`${inputId}-${id}`).value;
             
             batteryData[id] = {
                 match: document.getElementById(`match-${id}`).value,
@@ -194,19 +230,11 @@
             };
             
             localStorage.setItem('frc_batteries', JSON.stringify(batteryData));
-            addLog(`Batt #${id}: ${field} updated to "${val}"`);
-        };
-
-        window.clearLogs = () => {
-            if(confirm("Delete all history?")) {
-                activityLogs = [];
-                localStorage.setItem('frc_logs', JSON.stringify(activityLogs));
-                renderLogs();
-            }
+            addLog(`Batt #${id}: ${field} -> ${val || 'empty'}`);
         };
 
         createCards();
-        renderLogs();
+        saveAndRenderLogs();
     </script>
 </body>
 </html>

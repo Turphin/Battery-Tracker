@@ -1,0 +1,15 @@
+{
+    "name": "FRC Battery Tracker",
+    "short_name": "BattTrack",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#f8fafc",
+    "theme_color": "#2563eb",
+    "icons": [
+      {
+        "src": "https://via.placeholder.com/192/2563eb/ffffff?text=BAT",
+        "sizes": "192x192",
+        "type": "image/png"
+      }
+    ]
+  }
