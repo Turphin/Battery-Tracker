@@ -101,6 +101,9 @@
 
     <!-- PWA service worker (don't remove or it will break PWA) -->
     <script>navigator.serviceWorker.register("service-worker.js")</script> 
+
+    <!-- Disables swipe to refresh gesture (for PWA)-->
+    <style>html, body {overscroll-behavior-y: none;}</style>
 </head>
 <body>
 
